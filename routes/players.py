@@ -317,10 +317,15 @@ def reset_season_players():
     """
     try:
         reset_data = request.json
+        if not reset_data:
+            return jsonify({"error": "Request body is required"}), 400
         allowed_fields = ['wins', 'draws', 'losses', 'score', 'playing', 'played', 'percent', 'winpercent', 'goals']
         filtered_data = {k: v for k, v in reset_data.items() if k in allowed_fields}
         if not filtered_data:
-            return jsonify({"message": "No valid fields to reset"}), 400
+            return jsonify({
+                "error": "No valid fields to reset",
+                "allowed_fields": allowed_fields
+            }), 400
         result = players_collection.update_many({}, {"$set": filtered_data})
         if result.modified_count > 0:
             return jsonify({"message": f"Season reset successfully. {result.modified_count} players updated."}), 200
