@@ -291,3 +291,15 @@ def update_game(date):
 def delete_game(date):
     games_collection.delete_one({"date": date})
     return jsonify({"message": "Game deleted successfully"})
+
+@games_bp.route('/games', methods=['DELETE'])
+#@jwt_required()
+def delete_all_games():
+    """Delete all games from the database"""
+    try:
+        result = games_collection.delete_many({})
+        return jsonify({
+            "message": f"All games deleted successfully. {result.deleted_count} games removed."
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

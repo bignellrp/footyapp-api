@@ -306,3 +306,25 @@ def get_player_names_by_channel(channel):
     except Exception as e:
         print("An error occurred:", e)
         return jsonify({"msg": "An error occurred"}), 500
+
+@players_bp.route('/players/reset_season', methods=['PUT'])
+#@jwt_required()
+def reset_season_players():
+    """
+    Reset all player stats for a new season.
+    Preserves: name, total
+    Resets: wins, draws, losses, score, playing, played, percent, winpercent, goals
+    """
+    try:
+        reset_data = request.json
+        allowed_fields = ['wins', 'draws', 'losses', 'score', 'playing', 'played', 'percent', 'winpercent', 'goals']
+        filtered_data = {k: v for k, v in reset_data.items() if k in allowed_fields}
+        if not filtered_data:
+            return jsonify({"message": "No valid fields to reset"}), 400
+        result = players_collection.update_many({}, {"$set": filtered_data})
+        if result.modified_count > 0:
+            return jsonify({"message": f"Season reset successfully. {result.modified_count} players updated."}), 200
+        else:
+            return jsonify({"message": "No players were updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
