@@ -83,7 +83,7 @@ services:
       - mongodb
 
   mongodb:
-    image: mongo:latest
+    image: mongo:7.0
     networks:
       br0:
         ipv4_address: {your-mongo-ip}
