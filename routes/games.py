@@ -1,13 +1,37 @@
 from flask import Blueprint, jsonify, request
 from db_connect import db_connect
 from datetime import datetime
+from pymongo import DESCENDING
 #from flask_jwt_extended import jwt_required
 
+def remove_all_but_closest_game():
+    today = datetime.today()
+    
+    # Find the game with the date closest to today's date
+    closest_game = games_collection.find_one(
+        {"date": {"$lte": today.strftime('%Y-%m-%d')}},
+        sort=[("date", DESCENDING)]
+    )
+    
+    if closest_game:
+        closest_date = closest_game["date"]
+        
+        # Delete all games except the one with the closest date
+        games_collection.delete_many({"date": {"$ne": closest_date}})
+        
+        return jsonify({"message": "All games except the closest one have been deleted"})
+    else:
+        return jsonify({"message": "No games found"}), 404
 
 games_bp = Blueprint("games", __name__)
 players_collection, games_collection, tenant_collection = db_connect()
 
 # Routes for Games
+
+@games_bp.route('/games/remove_all', methods=['DELETE'])
+def remove_all_but_closest():
+    return remove_all_but_closest_game()
+
 @games_bp.route('/games', methods=['GET'])
 #@jwt_required()
 def get_games():
@@ -291,3 +315,15 @@ def update_game(date):
 def delete_game(date):
     games_collection.delete_one({"date": date})
     return jsonify({"message": "Game deleted successfully"})
+
+@games_bp.route('/games', methods=['DELETE'])
+#@jwt_required()
+def delete_all_games():
+    """Delete all games from the database"""
+    try:
+        result = games_collection.delete_many({})
+        return jsonify({
+            "message": f"All games deleted successfully. {result.deleted_count} games removed."
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

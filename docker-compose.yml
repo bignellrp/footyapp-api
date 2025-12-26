@@ -17,7 +17,7 @@ services:
       - mongodb
 
   mongodb:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: footyapp-db-${BRANCH}
     networks:
       - br1
