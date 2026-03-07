@@ -16,3 +16,4 @@ __pycache__/
 .DS_Store
 Thumbs.db
 init-mongo.js
+test_portainer_update.py
