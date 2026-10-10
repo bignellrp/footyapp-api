@@ -32,7 +32,8 @@ def get_players():
                             "playing": player["playing"],
                             "played": player["played"],
                             "percent": player["percent"],
-                            "winpercent": player["winpercent"]
+                            "winpercent": player["winpercent"],
+                            "goals": player.get("goals", 0)
                         } 
                     for player in players
                     ]
@@ -130,7 +131,8 @@ def get_player_stats():
         "draws" : player["draws"],
         "losses" : player["losses"],
         "score" : player["score"],
-        "winpercent" : player["winpercent"]
+        "winpercent" : player["winpercent"],
+        "goals" : player.get("goals", 0)
         } for player in sorted_players
     ]
     return jsonify(player_stats)
@@ -156,7 +158,7 @@ def get_leaderboard():
 
     # Create the leaderboard list with name and score
     leaderboard = [
-        {"name" : player["name"],"score" : player["score"],"goals" : player["goals"]} for player in top_players
+        {"name" : player["name"],"score" : player["score"],"goals" : player.get("goals", 0)} for player in top_players
     ]
     return jsonify(leaderboard)
 
@@ -233,18 +235,21 @@ def update_player(player_name):
 @players_bp.route('/players/goals/<player_name>', methods=['PUT'])
 #@jwt_required()
 def update_player_goals(player_name):
-    updated_data = request.json  # New values to update for the specific player
+    updated_data = request.get_json(silent=True) or {}
+    goals = updated_data.get("goals")
+    if isinstance(goals, bool) or not isinstance(goals, int) or goals < 0:
+        return jsonify({"error": "goals must be a non-negative integer"}), 400
 
     # Use the "$inc" operator to add incoming goals to the existing ones
-    update_goal = {"$inc": {"goals": updated_data["goals"]}}
+    update_goal = {"$inc": {"goals": goals}}
 
     # Update the specific player by matching the unique identifier
     result = players_collection.update_one({"name": player_name}, update_goal)
 
-    if result.modified_count > 0:
+    if result.matched_count > 0:
         return jsonify({"message": "Player's goal count updated successfully"})
     else:
-        return jsonify({"message": "Player not found or no changes applied"})
+        return jsonify({"message": "Player not found"}), 404
 
 
 @players_bp.route('/players/<player_name>', methods=['DELETE'])
