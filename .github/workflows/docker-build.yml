@@ -40,6 +40,24 @@ jobs:
           docker push ghcr.io/bignellrp/footyapp-api:${{ github.ref_name }}
           docker push ghcr.io/bignellrp/footyapp-api:${{ github.sha }}
 
+      - name: Pull only the API image in Portainer
+        env:
+          PORTAINER_URL: ${{ vars.PORTAINER_URL }}
+          PORTAINER_TOKEN: ${{ secrets.PORTAINER_TOKEN }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os, urllib.request, urllib.parse
+          base = os.environ['PORTAINER_URL'].rstrip('/')
+          query = urllib.parse.urlencode({'fromImage': 'ghcr.io/bignellrp/footyapp-api', 'tag': os.environ['GITHUB_SHA']})
+          request = urllib.request.Request(base + '/api/endpoints/2/docker/images/create?' + query,
+                                          headers={'X-API-Key': os.environ['PORTAINER_TOKEN']}, method='POST')
+          with urllib.request.urlopen(request, timeout=180) as response:
+              for line in response:
+                  if line.strip() and json.loads(line).get('error'):
+                      raise RuntimeError('API image pull failed; deployment stopped.')
+          print('API image is available; MongoDB image was not pulled.')
+          PYTHON
+
       - name: Install jq
         run: |
           sudo apt-get update
@@ -53,7 +71,7 @@ jobs:
           stack_name: ${{ github.ref_name == 'main' && 'footyapp-api' || 'footyapp-api-dev' }}
           stack_file: docker-compose.yml
           endpoint_id: 2
-          action: redeploy
-          prune: true
+          action: update
+          prune: false
           env_vars: |
             {"BRANCH":"${{ github.ref_name }}","PORT":"${{ github.ref_name == 'main' && vars.PORTAINER_PORT_MAIN || vars.PORTAINER_PORT_DEV }}","IMAGE_TAG":"${{ github.sha }}"}
