@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   footyapp-api:
-    image: ghcr.io/bignellrp/footyapp-api:${BRANCH}
+    image: ghcr.io/bignellrp/footyapp-api:${IMAGE_TAG:-${BRANCH}}
     container_name: footyapp-api-${BRANCH}
     networks:
       - br1

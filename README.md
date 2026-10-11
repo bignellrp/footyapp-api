@@ -760,3 +760,7 @@ Content-Type: application/json
   "message": "Players updated successfully"
 }
 ```
+
+## Safe deployment
+
+API startup only connects to existing collections. It does not insert sample players or games, or create indexes. Existing database rows and indexes are retained. New installations require explicit administrator initialization; never run sample initialization against a live database. Deployments use immutable commit image tags and retain the MongoDB service and volume configuration.
