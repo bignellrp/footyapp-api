@@ -52,7 +52,7 @@ def main():
         # Only HTTP GETs inside the API. Never import routes or connect to Mongo directly.
         check = "import os,urllib.request,json,time; time.sleep(3); r=urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:80/players/player_stats',headers={'Authorization':'Bearer '+os.environ['WEB_TOKEN']}),timeout=15); rows=json.load(r); assert rows and all('goals' in p for p in rows); print('API read-only health check passed')"
         execution = call('POST', 'containers/' + replacement + '/exec', {
-            'AttachStdout': True, 'AttachStderr': True, 'Cmd': ['python', '-c', check]})['Id']
+            'AttachStdout': True, 'AttachStderr': True, 'Tty': True, 'Cmd': ['python', '-c', check]})['Id']
         call('POST', 'exec/' + execution + '/start', {'Detach': False, 'Tty': True}, raw=True)
         if call('GET', 'exec/' + execution + '/json')['ExitCode'] != 0:
             raise RuntimeError('Production API read-only health check failed.')
