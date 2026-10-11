@@ -1,0 +1,44 @@
+name: Debug Portainer Connection
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  test_connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test DNS Resolution
+        run: |
+          echo "=== Testing DNS Resolution ==="
+          nslookup portainer.richardbignell.co.uk || true
+          dig portainer.richardbignell.co.uk || true
+          
+      - name: Test Basic Connectivity
+        run: |
+          echo "=== Testing Basic Connectivity ==="
+          ping -c 3 portainer.richardbignell.co.uk || true
+          
+      - name: Test HTTPS Connection
+        run: |
+          echo "=== Testing HTTPS Connection ==="
+          curl -v https://portainer.richardbignell.co.uk 2>&1 || true
+          
+      - name: Test API Endpoint
+        run: |
+          echo "=== Testing API Status Endpoint ==="
+          curl -v -X GET https://portainer.richardbignell.co.uk/api/status 2>&1 || true
+          
+      - name: Test API with Token
+        run: |
+          echo "=== Testing API with Authentication ==="
+          curl -v -X GET \
+            -H "X-API-Key: ${{ secrets.PORTAINER_TOKEN }}" \
+            https://portainer.richardbignell.co.uk/api/stacks 2>&1 || true
+          
+      - name: Show GitHub Runner IP
+        run: |
+          echo "=== GitHub Runner Public IP ==="
+          curl -s https://api.ipify.org
+          echo ""
+          echo "=== More details ==="
+          curl -s https://ipapi.co/json/ || true
