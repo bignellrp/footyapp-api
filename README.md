@@ -764,3 +764,5 @@ Content-Type: application/json
 ## Safe deployment
 
 API startup only connects to existing collections. It does not insert sample players or games, or create indexes. Existing database rows and indexes are retained. New installations require explicit administrator initialization; never run sample initialization against a live database. Deployments use immutable commit image tags and retain the MongoDB service and volume configuration.
+
+Production GitHub deployments replace only `footyapp-api-main` through the Docker API. They preserve its environment, ports and networking and retain the previous stopped API container for rollback. The running MongoDB container is neither pulled, restarted nor recreated. Dev deployments update the compose stack. Do not redeploy the entire production stack before checking the MongoDB image: the cached `mongo:7.0` tag may be newer than the live database image.

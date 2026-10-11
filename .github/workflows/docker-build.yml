@@ -63,7 +63,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq
 
-      - name: Deploy to Portainer
+      - name: Deploy production API without touching MongoDB
+        if: github.ref_name == 'main'
+        env:
+          PORTAINER_URL: ${{ vars.PORTAINER_URL }}
+          PORTAINER_TOKEN: ${{ secrets.PORTAINER_TOKEN }}
+        run: python3 scripts/deploy_api_container.py
+
+      - name: Deploy dev stack to Portainer
+        if: github.ref_name == 'dev'
         uses: bignellrp/portainer-api-action@main
         with:
           portainer_url: ${{ vars.PORTAINER_URL }}
