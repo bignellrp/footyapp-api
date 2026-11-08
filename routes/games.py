@@ -290,6 +290,23 @@ def swap_player():
                 {"$set": {"teamA": teamA, "teamB": teamB}}
             )
             
+            # If the new player is a reserve, promote them: they leave the queue,
+            # later reserves move up one place and the dropped player is not playing.
+            reserve_position = (new_player_info or {}).get("reserve", 0)
+            if reserve_position and reserve_position > 0:
+                players_collection.update_one(
+                    {"name": new_player},
+                    {"$set": {"playing": True, "reserve": 0}}
+                )
+                players_collection.update_many(
+                    {"reserve": {"$gt": reserve_position}},
+                    {"$inc": {"reserve": -1}}
+                )
+                players_collection.update_one(
+                    {"name": current_player},
+                    {"$set": {"playing": False, "reserve": 0}}
+                )
+            
             return jsonify({"message": "Player swapped and totals updated successfully"})
         else:
             return jsonify({"message": "No games found"})

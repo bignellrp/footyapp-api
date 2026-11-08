@@ -30,6 +30,7 @@ def get_players():
                             "losses": player["losses"],
                             "score": player["score"],
                             "playing": player["playing"],
+                            "reserve": player.get("reserve", 0),
                             "played": player["played"],
                             "percent": player["percent"],
                             "winpercent": player["winpercent"],
@@ -79,7 +80,8 @@ def get_player_names():
 
         # Create the player_names list with name and playing status
         player_names = [
-            {"name": player["name"], "playing": player["playing"]} for player in sorted_players
+            {"name": player["name"], "playing": player["playing"], "reserve": player.get("reserve", 0)}
+            for player in sorted_players
         ]
         return jsonify(player_names)
     # except jwt.exceptions.InvalidTokenError:
@@ -276,6 +278,22 @@ def update_playing_players():
     else:
         return jsonify({"message": "No players were updated"})
 
+MAX_RESERVES = 5
+
+@players_bp.route('/players/update_reserves', methods=['PUT'])
+#@jwt_required()
+def update_reserves():
+    """Store an ordered list of reserve names as reserve 1..5 (not playing)."""
+    data = request.json
+    if not isinstance(data, list) or len(data) > MAX_RESERVES or len(set(data)) != len(data):
+        return jsonify({"message": f"Send a list of up to {MAX_RESERVES} unique player names"}), 400
+
+    # Clear any existing reserve order first so the saved list is the full queue
+    players_collection.update_many({}, {"$set": {"reserve": 0}})
+    for position, name in enumerate(data, start=1):
+        players_collection.update_one({"name": name}, {"$set": {"reserve": position, "playing": False}})
+    return jsonify({"message": "Reserves updated successfully", "reserves": data})
+
 @players_bp.route('/players/update_notplaying', methods=['PUT'])
 #@jwt_required()
 def update_not_playing_players():
@@ -341,13 +359,13 @@ def reset_season_players():
     """
     Reset all player stats for a new season.
     Preserves: name, total
-    Resets: wins, draws, losses, score, playing, played, percent, winpercent, goals
+    Resets: wins, draws, losses, score, playing, reserve, played, percent, winpercent, goals
     """
     try:
         reset_data = request.json
         if not reset_data:
             return jsonify({"error": "Request body is required"}), 400
-        allowed_fields = ['wins', 'draws', 'losses', 'score', 'playing', 'played', 'percent', 'winpercent', 'goals']
+        allowed_fields = ['wins', 'draws', 'losses', 'score', 'playing', 'reserve', 'played', 'percent', 'winpercent', 'goals']
         filtered_data = {k: v for k, v in reset_data.items() if k in allowed_fields}
         if not filtered_data:
             return jsonify({
