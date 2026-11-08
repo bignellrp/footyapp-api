@@ -12,7 +12,10 @@ def db_connect():
     mongo_username = os.getenv("MONGO_USERNAME")
     mongo_password = os.getenv("MONGO_PASSWORD")
     mongo_host = os.getenv("MONGO_HOST")
-    mongo_uri = f"mongodb://{mongo_username}:{mongo_password}@{mongo_host}:27017/?authMechanism=DEFAULT&authSource=footyapp"
+    # Use the default port unless MONGO_HOST already includes one (e.g. 192.168.0.238:27242)
+    if mongo_host and ":" not in mongo_host:
+        mongo_host = f"{mongo_host}:27017"
+    mongo_uri = f"mongodb://{mongo_username}:{mongo_password}@{mongo_host}/?authMechanism=DEFAULT&authSource=footyapp"
     client = MongoClient(mongo_uri)
     db = client['footyapp']
     return db['players'], db['games'], db['tenant']
