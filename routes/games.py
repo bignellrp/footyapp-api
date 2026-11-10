@@ -86,6 +86,67 @@ def get_game_wins(player):
     
     return jsonify({"wins": count})
 
+def _recalc_percent(names):
+    """Recalculate percent and winpercent for the given players from their counters."""
+    for name in names:
+        player = players_collection.find_one({"name": name})
+        if not player:
+            continue
+        played = player.get("played", 0)
+        wins = player.get("wins", 0)
+        percentage = int(round(wins / played * 100)) if played > 0 else 0
+        winpercentage = 0 if wins < 5 else percentage
+        players_collection.update_one({"name": name}, {"$set": {"percent": percentage, "winpercent": winpercentage}})
+
+
+def _result_deltas(score_a, score_b):
+    """Counter changes a result gives (team A, team B): win +3, draw +1, loss 0."""
+    if score_a > score_b:
+        return ({"wins": 1, "played": 1, "score": 3}, {"losses": 1, "played": 1})
+    if score_a < score_b:
+        return ({"losses": 1, "played": 1}, {"wins": 1, "played": 1, "score": 3})
+    draw = {"draws": 1, "played": 1, "score": 1}
+    return (draw, dict(draw))
+
+
+@games_bp.route('/games/voidscore/<date>', methods=['PUT'])
+def void_score(date):
+    """Void a stored result: take its points/wins/draws/losses/played back off the
+    players and set the game back to having no score. Goals are not touched.
+    Re-entering a score afterwards applies the new result in the normal way."""
+    try:
+        game = games_collection.find_one({"date": date})
+        if not game:
+            return jsonify({"message": "Game not found"}), 404
+        if game.get("scoreTeamA") is None or game.get("scoreTeamB") is None:
+            return jsonify({"message": "Game has no score to void"}), 400
+        try:
+            score_a = int(game["scoreTeamA"])
+            score_b = int(game["scoreTeamB"])
+        except (TypeError, ValueError):
+            return jsonify({"message": "Stored score is not numeric"}), 400
+
+        deltas_a, deltas_b = _result_deltas(score_a, score_b)
+        changes = []
+        missing = []
+        for names, deltas in ((game["teamA"], deltas_a), (game["teamB"], deltas_b)):
+            for name in names:
+                player = players_collection.find_one({"name": name})
+                if not player:
+                    missing.append(name)
+                    continue
+                new_values = {field: max(0, player.get(field, 0) - amount) for field, amount in deltas.items()}
+                players_collection.update_one({"name": name}, {"$set": new_values})
+                changes.append({"name": name, "score": {"before": player.get("score", 0), "after": new_values.get("score", player.get("score", 0))}})
+        _recalc_percent([c["name"] for c in changes])
+
+        games_collection.update_one({"date": date}, {"$set": {"scoreTeamA": None, "scoreTeamB": None}})
+        return jsonify({"message": "Score voided", "voided": {"scoreTeamA": score_a, "scoreTeamB": score_b},
+                        "changes": changes, "missing_players": missing})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @games_bp.route('/games/updatescore/<date>', methods=['PUT'])
 #@jwt_required()
 def update_score(date):
@@ -142,30 +203,8 @@ def update_score(date):
                 players_collection.update_one({"name": player},{"$inc": {"draws": 1}})
                 players_collection.update_one({"name": player},{"$inc": {"played": 1}})
                 players_collection.update_one({"name": player},{"$inc": {"score": 1}})
-        #Need to make sure the player_collection is updated by the above first
-        for player in game_record["teamA"] or game_record["teamB"]:
-            findplayer = players_collection.find_one({"name": player})
-            if findplayer:
-                player_record = {
-                    "name": findplayer["name"],
-                    "total": findplayer["total"],
-                    "wins": findplayer["wins"],
-                    "draws": findplayer["draws"],
-                    "losses": findplayer["losses"],
-                    "score": findplayer["score"],
-                    "playing": findplayer["playing"],
-                    "played": findplayer["played"],
-                    "percent": findplayer["percent"],
-                    "winpercent": findplayer["winpercent"]
-                }
-            percentage = player_record["wins"] / player_record["played"] * 100
-            percentage = int(round(percentage))
-            if player_record["wins"] < 5:
-                winpercentage = 0
-            else:
-                winpercentage = percentage
-            players_collection.update_one({"name": player},{"$set": {"percent": percentage}})
-            players_collection.update_one({"name": player},{"$set": {"winpercent": winpercentage}})
+        # Recalculate percentages for every player in the game (both teams)
+        _recalc_percent(list(game_record["teamA"]) + list(game_record["teamB"]))
         return jsonify({"message": "Game updated successfully"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
